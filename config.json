@@ -1,0 +1,78 @@
+{
+  "system": {
+    "name": "PhysioSafe VR Safety System",
+    "version": "1.0.0",
+    "description": "Real-time safety monitoring for physiotherapy exercises"
+  },
+  "safety_thresholds": {
+    "shoulder": {
+      "flexion": {
+        "safe_max": 120,
+        "warning_max": 100,
+        "unit": "degrees"
+      },
+      "extension": {
+        "safe_max": 60,
+        "warning_max": 45,
+        "unit": "degrees"
+      },
+      "abduction": {
+        "safe_max": 150,
+        "warning_max": 120,
+        "unit": "degrees"
+      },
+      "adduction": {
+        "safe_max": 45,
+        "warning_max": 30,
+        "unit": "degrees"
+      }
+    },
+    "elbow": {
+      "flexion": {
+        "safe_max": 150,
+        "warning_max": 120,
+        "unit": "degrees"
+      },
+      "extension": {
+        "safe_max": 10,
+        "warning_max": 5,
+        "unit": "degrees"
+      },
+      "hyperextension": {
+        "danger_threshold": -5,
+        "unit": "degrees"
+      }
+    },
+    "wrist": {
+      "flexion": {
+        "safe_max": 80,
+        "warning_max": 60,
+        "unit": "degrees"
+      },
+      "extension": {
+        "safe_max": 70,
+        "warning_max": 55,
+        "unit": "degrees"
+      },
+      "radial_deviation": {
+        "safe_max": 20,
+        "warning_max": 15,
+        "unit": "degrees"
+      },
+      "ulnar_deviation": {
+        "safe_max": 30,
+        "warning_max": 25,
+        "unit": "degrees"
+      }
+    }
+  },
+  "confidence": {
+    "min_threshold": 0.6,
+    "low_confidence_action": "warning"
+  },
+  "output": {
+    "format": "json",
+    "refresh_rate_ms": 33,
+    "suppress_repeated_warnings": true
+  }
+}

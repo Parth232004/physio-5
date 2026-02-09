@@ -1,0 +1,21 @@
+# PhysioSafe VR Safety System Dependencies
+
+# Core dependencies
+numpy>=1.21.0
+
+# Computer vision and pose estimation
+opencv-python>=4.5.0
+mediapipe>=0.8.9
+
+# Note: MediaPipe requires protobuf which is included automatically
+
+# Optional: For enhanced JSON handling
+# ujson>=4.0.0  # Faster JSON parsing (uncomment if needed)
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=3.0.0
+
+# Type checking (optional)
+mypy>=0.950
+typeshed>=0.0.1
