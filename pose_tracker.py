@@ -69,7 +69,8 @@ class PoseTracker:
         self, 
         camera_index: int = 0,
         video_source: Optional[str] = None,
-        target_fps: int = 30
+        target_fps: int = 30,
+        display: bool = True
     ):
         """
         Initialize pose tracker.
@@ -78,16 +79,19 @@ class PoseTracker:
             camera_index: Camera device index
             video_source: Optional video file path
             target_fps: Target FPS for processing
+            display: Whether to display webcam feed
         """
         self.camera_index = camera_index
         self.video_source = video_source
         self.target_fps = target_fps
         self.frame_interval = 1.0 / target_fps
+        self.display = display
         
         self.state = TrackingState.NOT_INITIALIZED
         self.cap = None
         self.mp_pose = None
         self.pose = None
+        self.mp_drawing = None
         self.frame_number = 0
         self.last_frame_time = 0
         
@@ -107,9 +111,10 @@ class PoseTracker:
         if MEDIAPIPE_AVAILABLE:
             # Initialize MediaPipe Pose
             self.mp_pose = mp.solutions.pose
+            self.mp_drawing = mp.solutions.drawing_utils
             self.pose = self.mp_pose.Pose(
                 static_image_mode=False,
-                model_complexity=1,  # Balance between speed and accuracy
+                model_complexity=1,
                 smooth_landmarks=True,
                 enable_segmentation=False,
                 min_detection_confidence=0.5,
@@ -165,6 +170,12 @@ class PoseTracker:
         else:
             landmarks = self._process_fallback(frame)
         
+        # Display frame if enabled
+        if self.display and frame is not None:
+            cv2.imshow('PhysioSafe Pose Tracking', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                self.state = TrackingState.PAUSED
+        
         if landmarks:
             self.current_landmarks = landmarks
             return True, landmarks, self.tracking_confidence
@@ -177,6 +188,23 @@ class PoseTracker:
         # Convert to RGB
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.pose.process(frame_rgb)
+        
+        if results.pose_landmarks and self.mp_drawing:
+            # Draw pose landmarks on frame
+            self.mp_drawing.draw_landmarks(
+                frame,
+                results.pose_landmarks,
+                self.mp_pose.POSE_CONNECTIONS,
+                landmark_drawing_spec=self.mp_drawing.DrawingSpec(
+                    color=(0, 255, 0),  # Green
+                    thickness=2,
+                    circle_radius=2
+                ),
+                connection_drawing_spec=self.mp_drawing.DrawingSpec(
+                    color=(0, 255, 0),
+                    thickness=2
+                )
+            )
         
         if not results.pose_landmarks:
             return {}
@@ -273,6 +301,8 @@ class PoseTracker:
             self.cap.release()
         if self.pose:
             self.pose.close()
+        if self.display:
+            cv2.destroyAllWindows()
         self.state = TrackingState.NOT_INITIALIZED
     
     def is_ready(self) -> bool:
