@@ -32,9 +32,12 @@ class MovementType(Enum):
     """Types of joint movements"""
     FLEXION = "flexion"
     EXTENSION = "extension"
+    HYPEREXTENSION = "hyperextension"
     ABDUCTION = "abduction"
     ADDUCTION = "adduction"
     ROTATION = "rotation"
+    RADIAL_DEVIATION = "radial_deviation"
+    ULNAR_DEVIATION = "ulnar_deviation"
 
 
 @dataclass

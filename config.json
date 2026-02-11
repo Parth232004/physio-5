@@ -36,9 +36,12 @@
       "extension": {
         "safe_max": 10,
         "warning_max": 5,
+        "danger_threshold": -5,
         "unit": "degrees"
       },
       "hyperextension": {
+        "safe_max": 0,
+        "warning_max": -3,
         "danger_threshold": -5,
         "unit": "degrees"
       }
