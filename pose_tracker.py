@@ -4,7 +4,8 @@ Provides deterministic landmark detection for upper body analysis.
 """
 
 import time
-import cv2
+import sys
+import cv2  # type: ignore
 import numpy as np
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
@@ -104,6 +105,40 @@ class PoseTracker:
         self.total_frames = 0
         self.dropped_frames = 0
     
+    def _open_video_source(self):
+        """Robustly open the video source with backend fallbacks."""
+        # If a video file is provided, try that directly
+        if self.video_source:
+            cap = cv2.VideoCapture(self.video_source)
+            if cap.isOpened():
+                print(f"Using video file: {self.video_source}")
+                return cap
+            return None
+        
+        # Determine backend preferences per OS
+        backend_order = []
+        if sys.platform == 'darwin':
+            backend_order = [getattr(cv2, 'CAP_AVFOUNDATION', 0)]
+        elif sys.platform.startswith('win'):
+            backend_order = [getattr(cv2, 'CAP_DSHOW', 700), getattr(cv2, 'CAP_MSMF', 1400)]
+        else:
+            backend_order = [getattr(cv2, 'CAP_V4L2', 200), getattr(cv2, 'CAP_ANY', 0)]
+        
+        # Try preferred index first, then a few common indices
+        indices = [self.camera_index] + [i for i in range(3) if i != self.camera_index]
+        for idx in indices:
+            for backend in backend_order + [getattr(cv2, 'CAP_ANY', 0)]:
+                try:
+                    cap = cv2.VideoCapture(idx, backend)
+                except TypeError:
+                    # Older OpenCV may not support (index, backend) signature
+                    cap = cv2.VideoCapture(idx)
+                if cap.isOpened():
+                    print(f"Using camera index {idx} with backend {backend}")
+                    return cap
+        
+        return None
+    
     def initialize(self) -> bool:
         """Initialize the pose tracking system"""
         self.state = TrackingState.INITIALIZING
@@ -121,20 +156,21 @@ class PoseTracker:
                 min_tracking_confidence=0.5
             )
         
-        # Open video source
-        if self.video_source:
-            self.cap = cv2.VideoCapture(self.video_source)
-        else:
-            self.cap = cv2.VideoCapture(self.camera_index)
+        # Open video source (robust probing across backends and indices)
+        self.cap = self._open_video_source()
         
-        if not self.cap.isOpened():
-            print(f"Error: Could not open video source")
+        if not self.cap or not self.cap.isOpened():
+            print("Error: Could not open video source (camera).")
+            if sys.platform == 'darwin':
+                print("macOS note: Ensure the terminal/python process has Camera permission in System Settings > Privacy & Security > Camera.")
+            print("Tip: Try a different camera index with --camera, close other apps using the camera, or run with --mock to simulate.")
             self.state = TrackingState.NOT_INITIALIZED
             return False
         
-        # Set resolution
+        # Set resolution and target FPS (best-effort)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        self.cap.set(cv2.CAP_PROP_FPS, float(self.target_fps))
         
         self.state = TrackingState.TRACKING
         print(f"Pose tracker initialized. Target FPS: {self.target_fps}")
@@ -160,9 +196,22 @@ class PoseTracker:
         
         # Read frame
         ret, frame = self.cap.read()
-        if not ret:
-            self.state = TrackingState.LOST
-            return False, {}, None
+        if not ret or frame is None:
+            # Attempt a one-time reconnect if frame read fails
+            if self.cap:
+                try:
+                    self.cap.release()
+                except Exception:
+                    pass
+            self.cap = self._open_video_source()
+            if not self.cap or not self.cap.isOpened():
+                self.state = TrackingState.LOST
+                return False, {}, None
+            # Retry once after reopening
+            ret, frame = self.cap.read()
+            if not ret or frame is None:
+                self.state = TrackingState.LOST
+                return False, {}, None
         
         # Process frame
         if MEDIAPIPE_AVAILABLE and self.pose:
@@ -298,11 +347,20 @@ class PoseTracker:
     def release(self):
         """Release resources"""
         if self.cap:
-            self.cap.release()
+            try:
+                self.cap.release()
+            finally:
+                self.cap = None
         if self.pose:
-            self.pose.close()
+            try:
+                self.pose.close()
+            except Exception:
+                pass
         if self.display:
-            cv2.destroyAllWindows()
+            try:
+                cv2.destroyAllWindows()
+            except Exception:
+                pass
         self.state = TrackingState.NOT_INITIALIZED
     
     def is_ready(self) -> bool:

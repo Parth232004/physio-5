@@ -101,7 +101,7 @@ class PhysioSafeSystem:
         Run the safety monitoring loop.
         
         Args:
-            duration_seconds: Optional duration limit (None = infinite)
+            duration_seconds: Duration limit in seconds (0 or None = infinite)
         """
         if not self.tracker.is_ready():
             print("Error: Tracker not ready")
@@ -110,13 +110,19 @@ class PhysioSafeSystem:
         self.is_running = True
         self.start_time = time.time()
         
+        # Display session duration info
+        if duration_seconds and duration_seconds > 0:
+            print(f"Session duration: {duration_seconds:.0f} seconds")
+        else:
+            print("Session duration: unlimited (press Ctrl+C to stop)")
+        
         print("Starting safety monitoring...")
         print("-" * 60)
         
         try:
             while self.is_running:
-                # Check duration limit
-                if duration_seconds and (time.time() - self.start_time) > duration_seconds:
+                # Check duration limit (0 or None means unlimited)
+                if duration_seconds and duration_seconds > 0 and (time.time() - self.start_time) > duration_seconds:
                     break
                 
                 # Process frame
@@ -299,8 +305,8 @@ def main():
     parser.add_argument(
         "--duration", "-d",
         type=float,
-        default=None,
-        help="Duration in seconds (default: unlimited)"
+        default=60.0,
+        help="Duration in seconds (default: 60, set to 0 for unlimited)"
     )
     parser.add_argument(
         "--verbose", "-v",
@@ -331,7 +337,9 @@ def main():
     )
     
     if system.initialize():
-        system.run(duration_seconds=args.duration)
+        # Handle duration: 0 means unlimited, otherwise use specified duration
+        duration = None if args.duration == 0 else args.duration
+        system.run(duration_seconds=duration)
 
 
 if __name__ == "__main__":
